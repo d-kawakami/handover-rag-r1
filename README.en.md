@@ -126,7 +126,7 @@ git clone https://github.com/d-kawakami/handover-rag-r1.git ~/handover-rag-r1
 
 Place the handover note file (CSV or XLSX) in the **current directory** (`~/handover-rag-r1/`).
 
-Files named `引き継ぎノート*.csv` or `引き継ぎノート*.xlsx` are detected automatically.
+Files named `引き継ぎノート*.csv` or `引き継ぎノート*.xlsx` are detected automatically. This repository contains sample handover xlsx 'handover_sample.xlsx'.
 
 ```
 ~/handover-rag-r1/
