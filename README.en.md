@@ -372,3 +372,7 @@ The CSV has a title row, a header row, and data rows (referenced by 0-based inde
 | 6 | 時刻 (Time) | 午前 / 午後 / HH:MM etc. |
 | 7 | 内容 (Content) | Main text (primary search target) |
 | 8 | 記入者 (Author) | Staff name |
+
+## License
+
+[MIT License](LICENSE)
