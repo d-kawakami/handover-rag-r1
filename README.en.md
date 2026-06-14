@@ -6,7 +6,7 @@
 
 ## Overview
 
-A fully local RAG (Retrieval-Augmented Generation) search system for handover note CSV data from a water treatment facility.  
+A fully local RAG (Retrieval-Augmented Generation) search system for handover note XLSX/CSV data from a water treatment facility.  
 Like [NotebookLM](https://notebooklm.google.com/), you ask questions in natural language and the AI answers in Japanese based on relevant handover records.  
 All processing is local — no data is sent to external services.
 
