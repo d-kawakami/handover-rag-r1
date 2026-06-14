@@ -6,7 +6,7 @@
 
 ## 概要
 
-プラントの引継ぎノート CSV データを対象にした、ローカル完結型の RAG（Retrieval-Augmented Generation）検索システムです。  
+プラントの引継ぎノート XLSX/CSV データを対象にした、ローカル完結型の RAG（Retrieval-Augmented Generation）検索システムです。  
 [NotebookLM](https://notebooklm.google.com/) のように自然言語で質問すると、関連する引継ぎ記録を根拠にして AI が日本語で回答します。  
 すべての処理はローカルで完結し、データが外部に送信されることはありません。
 
