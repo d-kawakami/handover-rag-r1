@@ -1,0 +1,58 @@
+# データファイル（公開しない）
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.db
+
+# SudachiPy ユーザー辞書（施設固有語彙を含むため非公開）
+user.dic
+*.dic.bak
+*.dic.tmp
+*.csv.tmp
+
+# アプリケーション設定（モデル選択など環境依存）
+config.json
+
+# ChromaDB（ベクターデータベース）
+chroma_db/
+
+# Python仮想環境
+venv/
+.venv/
+env/
+
+# Pythonキャッシュ
+__pycache__/
+*.py[cod]
+*.pyo
+
+# 環境変数・APIキー
+.env
+.env.*
+*.env
+
+# Claude Code 設定
+.claude/
+
+# エディタ一時ファイル
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+
+# アップロードされたCSV
+uploads/
+
+# ログ
+*.log
+logs/
+
+# テスト評価出力（実行時生成、コミット不要）
+tests/results/
+tests/*.jsonl
+tests/*.output

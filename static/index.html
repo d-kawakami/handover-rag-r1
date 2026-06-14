@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>引継ぎノート RAG 検索</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; background: #f0f4f8; color: #1a202c; }
+
+  header {
+    background: #1a365d; color: white; padding: 14px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; min-width: 0; }
+  header h1 { font-size: 1.2rem; font-weight: 600; }
+  .badge { background: #3182ce; font-size: 0.72rem; padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
+
+  /* Settings button */
+  .btn-settings {
+    margin-left: 12px; background: transparent; border: none; cursor: pointer;
+    color: white; padding: 7px; border-radius: 8px; display: flex; align-items: center;
+    opacity: 0.8; transition: opacity .15s, background .15s; flex-shrink: 0;
+  }
+  .btn-settings:hover { opacity: 1; background: rgba(255,255,255,.15); }
+
+  /* Settings drawer */
+  .settings-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4);
+    z-index: 100; opacity: 0; pointer-events: none; transition: opacity .25s;
+  }
+  .settings-backdrop.open { opacity: 1; pointer-events: auto; }
+  .settings-drawer {
+    position: fixed; top: 0; right: 0; width: min(380px, 100vw); height: 100vh;
+    background: white; box-shadow: -4px 0 24px rgba(0,0,0,.18);
+    z-index: 101; overflow-y: auto; display: flex; flex-direction: column;
+    transform: translateX(100%); transition: transform .25s ease;
+  }
+  .settings-drawer.open { transform: translateX(0); }
+  .drawer-header {
+    padding: 14px 20px; border-bottom: 1px solid #e2e8f0;
+    background: #1a365d; color: white;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 1;
+  }
+  .drawer-header h2 { font-size: 0.95rem; font-weight: 600; }
+  .btn-close {
+    background: transparent; border: none; cursor: pointer;
+    color: rgba(255,255,255,.8); padding: 4px; border-radius: 4px;
+    display: flex; line-height: 1;
+  }
+  .btn-close:hover { color: white; background: rgba(255,255,255,.15); }
+  .drawer-body { padding: 20px; flex: 1; }
+  .drawer-section { margin-bottom: 28px; }
+  .drawer-section-title {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: .1em;
+    color: #a0aec0; margin-bottom: 12px; font-weight: 700;
+  }
+
+  /* Toggle */
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid #f0f4f8;
+  }
+  .toggle-label { font-size: 0.88rem; color: #2d3748; }
+  .setting-hint {
+    font-size: 0.75rem; color: #718096; line-height: 1.5;
+    padding: 4px 0 8px; border-bottom: 1px solid #f0f4f8;
+  }
+  .toggle-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .toggle-track {
+    position: absolute; inset: 0; background: #cbd5e0; border-radius: 22px;
+    cursor: pointer; transition: background .2s;
+  }
+  .toggle-track::after {
+    content: ''; position: absolute; left: 3px; top: 3px;
+    width: 16px; height: 16px; background: white; border-radius: 50%;
+    transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  }
+  .toggle-switch input:checked + .toggle-track { background: #3182ce; }
+  .toggle-switch input:checked + .toggle-track::after { transform: translateX(18px); }
+
+  /* DB管理 in drawer */
+  .db-stats { display: flex; gap: 16px; padding: 4px 0 16px; flex-wrap: wrap; align-items: center; }
+  .stat-item { text-align: center; }
+  .stat-num { font-size: 1.5rem; font-weight: 700; color: #2b6cb0; line-height: 1; }
+  .stat-label { font-size: 0.7rem; color: #718096; margin-top: 2px; }
+
+  .upload-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .file-label {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; border: 1.5px dashed #cbd5e0; border-radius: 8px;
+    cursor: pointer; font-size: 0.84rem; color: #4a5568; background: #f7fafc;
+    transition: border-color .2s, background .2s;
+  }
+  .file-label:hover { border-color: #3182ce; background: #ebf8ff; }
+  .file-label.has-file { border-color: #38a169; background: #f0fff4; color: #276749; border-style: solid; }
+  #csvFile { display: none; }
+
+  .btn { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.88rem; font-weight: 600; transition: opacity .15s; }
+  .btn:hover { opacity: .85; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-primary { background: #3182ce; color: white; }
+  .btn-secondary { background: #718096; color: white; }
+  .btn-danger { background: #e53e3e; color: white; }
+  .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+
+  /* 進捗 */
+  .progress-section { margin-top: 4px; }
+  .progress-bar-wrap { background: #e2e8f0; border-radius: 6px; height: 8px; overflow: hidden; margin-bottom: 6px; }
+  .progress-bar-fill { height: 100%; background: #3182ce; border-radius: 6px; transition: width .4s ease; width: 0%; }
+  .progress-bar-fill.done { background: #38a169; }
+  .progress-bar-fill.error { background: #e53e3e; }
+  .progress-bar-fill.indeterminate {
+    width: 40% !important;
+    animation: indeterminate 1.2s ease-in-out infinite;
+  }
+  @keyframes indeterminate {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+  .progress-meta { display: flex; justify-content: space-between; font-size: 0.76rem; color: #718096; margin-bottom: 8px; }
+  .log-area {
+    background: #1a202c; color: #a0aec0; border-radius: 8px;
+    padding: 10px 14px; font-size: 0.78rem; font-family: monospace;
+    max-height: 160px; overflow-y: auto; line-height: 1.6;
+  }
+  .log-area .log-done { color: #68d391; }
+  .log-area .log-error { color: #fc8181; }
+
+  /* 検索モード選択（ラジオボタン → ピル型チップ） */
+  .mode-group { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+  .mode-group input[type=radio] { display: none; }
+  .mode-group label {
+    padding: 6px 14px; border-radius: 20px; border: 1.5px solid #cbd5e0;
+    font-size: 0.85rem; font-weight: 600; cursor: pointer; color: #4a5568;
+    background: white; transition: all .15s; user-select: none;
+  }
+  .mode-group label:hover { border-color: #a0aec0; background: #f7fafc; }
+  #modeAI:checked + label      { background: #3182ce; color: white; border-color: #3182ce; }
+  #modeRelated:checked + label { background: #2f855a; color: white; border-color: #2f855a; }
+  #modeScan:checked + label    { background: #c05621; color: white; border-color: #c05621; }
+  .mode-desc { font-size: 0.78rem; color: #718096; margin-top: 8px; min-height: 1.1em; white-space: pre-line; }
+  /* 設定ドロワー内ラジオボタン */
+  .setting-radio-group { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+  .setting-radio-group input[type=radio] { display: none; }
+  .setting-radio-group label {
+    padding: 4px 10px; border-radius: 12px; border: 1.5px solid #cbd5e0;
+    font-size: 0.82rem; font-weight: 600; cursor: pointer; color: #4a5568;
+    background: white; transition: all .15s; user-select: none;
+  }
+  .setting-radio-group label:hover { border-color: #a0aec0; background: #f7fafc; }
+  .setting-radio-group input[type=radio]:checked + label { background: #3182ce; color: white; border-color: #3182ce; }
+
+  /* フィルターバー */
+  .filter-toggle-row { display: flex; align-items: center; gap: 10px; margin: 10px 0 4px; }
+  .filter-toggle-btn {
+    display: flex; align-items: center; gap: 4px;
+    padding: 2px 9px; border-radius: 12px; border: 1px solid #cbd5e0;
+    background: white; color: #718096; font-size: 0.75rem; font-weight: 600;
+    cursor: pointer; transition: all .15s; user-select: none; line-height: 1.4;
+  }
+  .filter-toggle-btn:hover { border-color: #a0aec0; background: #f7fafc; }
+  .filter-toggle-btn.open { border-color: #3182ce; color: #3182ce; background: #ebf8ff; }
+  #filterToggleIcon { font-size: 0.65rem; transition: transform .2s; }
+  .filter-bar {
+    display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+    padding: 10px 12px; margin: 0 0 6px;
+    background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+    font-size: 0.82rem;
+  }
+  .filter-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .filter-group-label { color: #718096; white-space: nowrap; font-size: 0.78rem; }
+  .filter-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+  .filter-chip {
+    padding: 3px 10px; border-radius: 12px; border: 1.5px solid #cbd5e0;
+    background: white; color: #4a5568; font-size: 0.8rem; font-weight: 600;
+    cursor: pointer; transition: all .15s; user-select: none;
+  }
+  .filter-chip:hover { border-color: #a0aec0; background: #edf2f7; }
+  .filter-chip.active { background: #3182ce; color: white; border-color: #3182ce; }
+  .filter-chip[data-group=shubetsu].active { background: #2f855a; border-color: #2f855a; }
+  .filter-select {
+    padding: 3px 6px; border-radius: 6px; border: 1.5px solid #cbd5e0;
+    font-size: 0.8rem; background: white; color: #4a5568; cursor: pointer;
+  }
+  .filter-clear-btn {
+    padding: 3px 10px; border-radius: 12px; border: 1.5px solid #e53e3e;
+    background: white; color: #e53e3e; font-size: 0.78rem; font-weight: 600;
+    cursor: pointer; transition: all .15s;
+  }
+  .filter-clear-btn:hover { background: #fff5f5; }
+  .filter-active-label {
+    font-size: 0.76rem; color: #744210; background: #fefcbf;
+    padding: 3px 10px; border-radius: 6px; margin-bottom: 4px;
+  }
+
+  /* 検索パネル */
+  .container { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+  .search-card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 20px; }
+  .textarea-wrap { position: relative; }
+  textarea { width: 100%; padding: 12px 36px 12px 12px; border: 1.5px solid #cbd5e0; border-radius: 8px; font-size: 0.95rem; resize: vertical; min-height: 72px; font-family: inherit; transition: border .2s; box-sizing: border-box; }
+  textarea:focus { outline: none; border-color: #3182ce; }
+  .textarea-clear-btn {
+    position: absolute; top: 7px; right: 7px;
+    width: 22px; height: 22px; border-radius: 50%;
+    border: none; background: #cbd5e0; color: #4a5568;
+    font-size: 0.85rem; line-height: 1; cursor: pointer;
+    display: none; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  .textarea-clear-btn:hover { background: #a0aec0; color: white; }
+  .textarea-clear-btn.visible { display: flex; }
+  .controls { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  .controls label { font-size: 0.85rem; color: #4a5568; }
+  select { padding: 6px 10px; border: 1.5px solid #cbd5e0; border-radius: 6px; font-size: 0.85rem; }
+
+  .spinner { display: none; width: 18px; height: 18px; border: 2.5px solid rgba(255,255,255,.4); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 4px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading .spinner { display: inline-block; }
+
+  .answer-card { background: white; border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 16px; }
+  .answer-card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: .05em; color: #718096; margin-bottom: 10px; }
+  .answer-text { font-size: 0.97rem; line-height: 1.75; }
+  .answer-text h1,.answer-text h2,.answer-text h3,.answer-text h4 {
+    font-size: 1rem; font-weight: 700; margin: 12px 0 4px; color: #2d3748;
+  }
+  .answer-text p { margin: 0 0 8px; }
+  .answer-text p:last-child { margin-bottom: 0; }
+  .answer-text ul,.answer-text ol { margin: 4px 0 8px 20px; }
+  .answer-text li { margin-bottom: 2px; }
+  .answer-text strong { font-weight: 700; }
+  .answer-text em { font-style: italic; }
+  .answer-text code {
+    background: #edf2f7; border-radius: 3px;
+    padding: 1px 5px; font-size: 0.88em; font-family: monospace;
+  }
+
+  .sources-title { font-size: 0.88rem; font-weight: 600; color: #4a5568; margin: 16px 0 8px; }
+  .source-item { background: white; border-radius: 10px; padding: 14px 18px; box-shadow: 0 1px 3px rgba(0,0,0,.06); margin-bottom: 10px; border-left: 4px solid #3182ce; }
+  .source-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .tag { font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; background: #ebf4ff; color: #2b6cb0; }
+  .tag.kosho { background: #fff5f5; color: #c53030; }
+  .tag.shubetsu-故障 { background: #fff5f5; color: #c53030; }
+  .tag.shubetsu-修理 { background: #fffbeb; color: #b7791f; }
+  .source-content { font-size: 0.88rem; line-height: 1.65; color: #2d3748; }
+
+  .error-box { background: #fff5f5; border: 1px solid #fc8181; border-radius: 8px; padding: 12px 16px; color: #c53030; font-size: 0.88rem; margin-top: 12px; }
+  .hidden { display: none; }
+  .divider { height: 1px; background: #e2e8f0; margin: 12px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>引継ぎノート RAG 検索</h1>
+    <span class="badge" id="modelBadge">…</span>
+    <span id="healthBadge" class="badge" style="background:#2f855a">読込中…</span>
+  </div>
+  <a href="/static/dict_admin.html" style="margin-left:8px;flex-shrink:0;font-size:.78rem;color:rgba(255,255,255,.8);text-decoration:none;padding:5px 10px;border:1px solid rgba(255,255,255,.3);border-radius:6px;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.15)'" onmouseout="this.style.background=''">辞書管理</a>
+  <button class="btn-settings" id="btnSettings" onclick="openSettings()" title="設定">
+    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+</header>
+
+<!-- Settings backdrop -->
+<div class="settings-backdrop" id="settingsBackdrop" onclick="closeSettings()"></div>
+
+<!-- Settings drawer -->
+<div class="settings-drawer" id="settingsDrawer">
+  <div class="drawer-header">
+    <h2>設定</h2>
+    <button class="btn-close" onclick="closeSettings()" title="閉じる">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+  <div class="drawer-body">
+
+    <!-- 表示設定 -->
+    <div class="drawer-section">
+      <div class="drawer-section-title">表示設定</div>
+      <div class="toggle-row">
+        <span class="toggle-label">記入者を非表示にする</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleHideWriter" onchange="saveSettings()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- LLMモデル設定 -->
+    <div class="drawer-section">
+      <div class="drawer-section-title">LLMモデル設定</div>
+      <div class="toggle-row" style="align-items:flex-start;flex-direction:column;gap:8px">
+        <span class="toggle-label">使用モデル（デフォルトとして保存）</span>
+        <div style="display:flex;gap:6px;align-items:center;width:100%">
+          <select id="settingModel" style="flex:1;min-width:0">
+            <option value="">読込中...</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="applyModel()" id="btnApplyModel">適用</button>
+        </div>
+        <div id="modelStatus" style="font-size:0.78rem;color:#718096;min-height:1.2em"></div>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">思考モード（Think）
+          <span style="font-size:0.72rem;color:#a0aec0;display:block;margin-top:1px">Qwen3 等の推論機能をオンにする</span>
+        </span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleReasoning" onchange="applyReasoning()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div id="reasoningStatus" style="font-size:0.78rem;color:#718096;min-height:1.2em;padding:2px 0"></div>
+    </div>
+
+    <!-- 検索設定 -->
+    <div class="drawer-section">
+      <div class="drawer-section-title">検索設定</div>
+      <div class="toggle-row">
+        <span class="toggle-label">チャット件数</span>
+        <select id="settingTopK" onchange="saveSettings()">
+          <option value="3">3件</option>
+          <option value="5" selected>5件</option>
+          <option value="10">10件</option>
+          <option value="20">20件</option>
+          <option value="30">30件</option>
+          <option value="40">40件</option>
+          <option value="50">50件</option>
+        </select>
+      </div>
+      <div class="setting-hint">AI回答時に参照する引継ぎ記録の件数。増やすほど幅広い記録を考慮した回答になりますが、応答時間が長くなります。上限50件（推奨: 5〜20件）。件数・集計系の質問は全件スキャンのため設定値は影響しません。</div>
+      <div class="toggle-row">
+        <span class="toggle-label">検索件数</span>
+        <select id="settingSearchTopK" onchange="saveSettings()">
+          <option value="3">3件</option>
+          <option value="5">5件</option>
+          <option value="10">10件</option>
+          <option value="20">20件</option>
+          <option value="30">30件</option>
+          <option value="40" selected>40件</option>
+          <option value="50">50件</option>
+          <option value="100">100件</option>
+        </select>
+      </div>
+      <div class="setting-hint">「検索のみ」ボタンで一覧表示する件数。増やすと表示件数が増えますが、その分処理が遅くなります。上限100件（推奨: 20〜40件）。</div>
+      <div class="toggle-row">
+        <span class="toggle-label">新着優先</span>
+        <select id="settingRecency" onchange="saveSettings()">
+          <option value="0" selected>なし</option>
+          <option value="0.5">弱</option>
+          <option value="1.5">中</option>
+          <option value="3.0">強</option>
+        </select>
+      </div>
+      <div class="setting-hint">最近の記録を優先して表示します。直近のトラブルを調べる場合は「中〜強」、過去の傾向を幅広く調べる場合は「なし」が適しています。</div>
+      <div class="toggle-row" style="align-items:flex-start; flex-direction:column; gap:6px">
+        <span class="toggle-label">設備別傾向サンプル数</span>
+        <div class="setting-radio-group" id="equipSamplesGroup">
+          <input type="radio" name="equipSamples" id="equip10"  value="10"  onchange="saveEquipSamples(this.value)">  <label for="equip10">10件</label>
+          <input type="radio" name="equipSamples" id="equip20"  value="20"  onchange="saveEquipSamples(this.value)">  <label for="equip20">20件</label>
+          <input type="radio" name="equipSamples" id="equip30"  value="30"  onchange="saveEquipSamples(this.value)" checked> <label for="equip30">30件</label>
+          <input type="radio" name="equipSamples" id="equip50"  value="50"  onchange="saveEquipSamples(this.value)">  <label for="equip50">50件</label>
+          <input type="radio" name="equipSamples" id="equip100" value="100" onchange="saveEquipSamples(this.value)"> <label for="equip100">100件</label>
+        </div>
+      </div>
+      <div class="setting-hint">「〜の故障の傾向は？」などの設備別傾向質問でLLMへ渡す代表記録数。増やすほど詳細な分析になりますが、応答時間が長くなりトークン溢れのリスクが上がります（推奨: 20〜30件）。</div>
+    </div>
+
+    <!-- DB管理 -->
+    <div class="drawer-section">
+      <div class="drawer-section-title">DB管理</div>
+      <div class="db-stats">
+        <div class="stat-item">
+          <div class="stat-num" id="statRecords">—</div>
+          <div class="stat-label">DB登録件数</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-num" id="statBm25">—</div>
+          <div class="stat-label">BM25インデックス</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="refreshDbStatus()" style="margin-left:auto">更新</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="upload-row">
+        <label class="file-label" id="fileLabel" for="csvFile">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M16 8l-4-4-4 4M12 4v12"/></svg>
+          CSV/Excelを選択
+        </label>
+        <input type="file" id="csvFile" accept=".csv,.xlsx">
+        <button class="btn btn-primary btn-sm" id="btnDiff" onclick="startIngest(false)" disabled>差分更新</button>
+        <button class="btn btn-danger btn-sm" id="btnRebuild" onclick="confirmRebuild()" disabled>全件再構築</button>
+      </div>
+
+      <div id="progressSection" class="progress-section hidden">
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-meta">
+          <span id="progressText">—</span>
+          <span id="progressPct">—</span>
+        </div>
+        <div class="log-area" id="logArea"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ===== 検索パネル ===== -->
+  <div class="search-card">
+    <div class="textarea-wrap">
+      <textarea id="question" placeholder="例: ポンプに関する故障はどのようなものがありましたか？" oninput="onQuestionInput()"></textarea>
+      <button class="textarea-clear-btn" id="questionClearBtn" onclick="clearQuestion()" title="クリア">✕</button>
+    </div>
+
+    <!-- フィルターバー -->
+    <div class="filter-toggle-row">
+      <button class="filter-toggle-btn" id="filterToggleBtn" onclick="toggleFilterBar()">
+        <span id="filterToggleIcon">▶</span> 絞り込み
+      </button>
+      <div id="filterActiveLabel" class="filter-active-label" style="display:none"></div>
+    </div>
+    <div class="filter-bar" id="filterBar" style="display:none">
+      <div class="filter-group">
+        <span class="filter-group-label">勤務</span>
+        <div class="filter-chips">
+          <button class="filter-chip" data-group="kinmu" data-value="日勤" onclick="toggleFilterChip(this)">日勤</button>
+          <button class="filter-chip" data-group="kinmu" data-value="夜勤" onclick="toggleFilterChip(this)">夜勤</button>
+        </div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-group-label">種別</span>
+        <div class="filter-chips">
+          <button class="filter-chip" data-group="shubetsu" data-value="故障" onclick="toggleFilterChip(this)">故障</button>
+          <button class="filter-chip" data-group="shubetsu" data-value="故障処置" onclick="toggleFilterChip(this)">故障処置</button>
+          <button class="filter-chip" data-group="shubetsu" data-value="報告" onclick="toggleFilterChip(this)">報告</button>
+        </div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-group-label">時期</span>
+        <select id="filterYear" class="filter-select" onchange="onFilterChange()">
+          <option value="">年: 全て</option>
+        </select>
+        <select id="filterMonth" class="filter-select" onchange="onFilterChange()">
+          <option value="">月: 全て</option>
+          <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+          <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+          <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+          <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+        </select>
+        <select id="filterDay" class="filter-select" onchange="onFilterChange()">
+          <option value="">日: 全て</option>
+        </select>
+      </div>
+      <button class="filter-clear-btn" id="filterClearBtn" onclick="clearFilters()" style="display:none">✕ クリア</button>
+    </div>
+
+    <div class="controls">
+      <div class="mode-group">
+        <input type="radio" name="searchMode" id="modeAI" value="ai" checked onchange="onModeChange()">
+        <label for="modeAI">AI回答</label>
+        <input type="radio" name="searchMode" id="modeRelated" value="related" onchange="onModeChange()">
+        <label for="modeRelated">関連検索</label>
+        <input type="radio" name="searchMode" id="modeScan" value="scan" onchange="onModeChange()">
+        <label for="modeScan">全件検索</label>
+      </div>
+      <button class="btn btn-primary" id="btnSearch" onclick="doSearch()">
+        <span class="spinner" id="spinSearch"></span>検索
+      </button>
+      <button class="btn btn-danger" id="btnStop" onclick="abortQuery()" style="display:none">■ 中断</button>
+    </div>
+    <div id="modeDesc" class="mode-desc"></div>
+    <div id="error" class="error-box hidden"></div>
+  </div>
+
+  <div id="answerSection" class="hidden">
+    <div class="answer-card">
+      <h2>AI 回答</h2>
+      <div class="answer-text" id="answerText"></div>
+    </div>
+  </div>
+
+  <div id="sourcesSection" class="hidden">
+    <div class="sources-title" id="sourcesTitle"></div>
+    <div id="sourcesList"></div>
+  </div>
+
+</div>
+
+<script>
+/* ===== Markdown renderer ===== */
+
+function markdownToHtml(text) {
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  function inline(s) {
+    // Bold: **text** or __text__
+    s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/__(.+?)__/g, '<strong>$1</strong>');
+    // Italic: *text* (single, not at boundary of word)
+    s = s.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+    // Inline code
+    s = s.replace(/`([^`]+?)`/g, '<code>$1</code>');
+    return s;
+  }
+
+  const lines = text.split('\n');
+  const out = [];
+  let inUl = false, inOl = false;
+
+  function closeLists() {
+    if (inUl) { out.push('</ul>'); inUl = false; }
+    if (inOl) { out.push('</ol>'); inOl = false; }
+  }
+
+  for (const raw of lines) {
+    const line = raw.trim();
+
+    // Heading (#, ##, ###, ####)
+    const hm = line.match(/^(#{1,4})\s+(.+)/);
+    if (hm) {
+      closeLists();
+      const lvl = hm[1].length + 1; // h2〜h5
+      out.push(`<h${lvl}>${inline(esc(hm[2]))}</h${lvl}>`);
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^---+$/.test(line)) { closeLists(); out.push('<hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0">'); continue; }
+
+    // Unordered list
+    const ulm = raw.match(/^[ \t]*[-*]\s+(.+)/);
+    if (ulm) {
+      if (!inUl) { closeLists(); out.push('<ul>'); inUl = true; }
+      out.push(`<li>${inline(esc(ulm[1]))}</li>`);
+      continue;
+    }
+
+    // Ordered list
+    const olm = raw.match(/^[ \t]*(\d+)[.)]\s+(.+)/);
+    if (olm) {
+      const num = parseInt(olm[1], 10);
+      if (!inOl) { closeLists(); out.push(`<ol start="${num}">`); inOl = true; }
+      out.push(`<li>${inline(esc(olm[2]))}</li>`);
+      continue;
+    }
+
+    // Empty line
+    if (line === '') { closeLists(); out.push('<p style="margin:0;height:6px"></p>'); continue; }
+
+    // Normal paragraph line
+    closeLists();
+    out.push(`<p>${inline(esc(raw))}</p>`);
+  }
+
+  closeLists();
+  return out.join('');
+}
+
+/* ===== Settings ===== */
+
+function openSettings() {
+  document.getElementById('settingsBackdrop').classList.add('open');
+  document.getElementById('settingsDrawer').classList.add('open');
+  refreshDbStatus();
+  loadOllamaModels();
+  loadReasoningState();
+}
+
+function closeSettings() {
+  document.getElementById('settingsBackdrop').classList.remove('open');
+  document.getElementById('settingsDrawer').classList.remove('open');
+}
+
+
+function saveSettings() {
+  localStorage.setItem('hideWriter', document.getElementById('toggleHideWriter').checked ? '1' : '0');
+  localStorage.setItem('topK', document.getElementById('settingTopK').value);
+  localStorage.setItem('searchTopK', document.getElementById('settingSearchTopK').value);
+  localStorage.setItem('recencyWeight', document.getElementById('settingRecency').value);
+  renderSources(null);
+}
+
+/* ===== 入力クリア ===== */
+
+function onQuestionInput() {
+  const btn = document.getElementById('questionClearBtn');
+  btn.classList.toggle('visible', document.getElementById('question').value.length > 0);
+}
+
+function clearQuestion() {
+  document.getElementById('question').value = '';
+  document.getElementById('questionClearBtn').classList.remove('visible');
+  document.getElementById('question').focus();
+}
+
+/* ===== フィルター ===== */
+
+function toggleFilterBar() {
+  const bar = document.getElementById('filterBar');
+  const btn = document.getElementById('filterToggleBtn');
+  const icon = document.getElementById('filterToggleIcon');
+  const open = bar.style.display === 'none';
+  bar.style.display = open ? '' : 'none';
+  btn.classList.toggle('open', open);
+  icon.textContent = open ? '▼' : '▶';
+}
+
+function toggleFilterChip(btn) {
+  btn.classList.toggle('active');
+  updateFilterUI();
+}
+
+function onFilterChange() {
+  updateFilterUI();
+}
+
+function clearFilters() {
+  document.querySelectorAll('.filter-chip.active').forEach(c => c.classList.remove('active'));
+  document.getElementById('filterYear').value = '';
+  document.getElementById('filterMonth').value = '';
+  document.getElementById('filterDay').value = '';
+  updateFilterUI();
+}
+
+function getActiveFilter() {
+  const kinmu = [...document.querySelectorAll('.filter-chip[data-group=kinmu].active')].map(c => c.dataset.value);
+  const shubetsu = [...document.querySelectorAll('.filter-chip[data-group=shubetsu].active')].map(c => c.dataset.value);
+  const year = document.getElementById('filterYear').value;
+  const month = document.getElementById('filterMonth').value;
+  const day = document.getElementById('filterDay').value;
+  return { kinmu, shubetsu, year: year ? parseInt(year) : null, month: month ? parseInt(month) : null, day: day ? parseInt(day) : null };
+}
+
+function buildFilterLabel(f) {
+  const parts = [];
+  if (f.kinmu.length) parts.push('勤務=' + f.kinmu.join('/'));
+  if (f.shubetsu.length) parts.push('種別=' + f.shubetsu.join('/'));
+  if (f.year) parts.push(f.year + '年');
+  if (f.month) parts.push(f.month + '月');
+  if (f.day) parts.push(f.day + '日');
+  return parts.join('、');
+}
+
+function isFilterActive(f) {
+  return f.kinmu.length > 0 || f.shubetsu.length > 0 || f.year || f.month || f.day;
+}
+
+function updateFilterUI() {
+  const f = getActiveFilter();
+  const active = isFilterActive(f);
+  document.getElementById('filterClearBtn').style.display = active ? '' : 'none';
+  const lbl = document.getElementById('filterActiveLabel');
+  if (active) {
+    lbl.textContent = '絞り込み中: ' + buildFilterLabel(f);
+    lbl.style.display = '';
+  } else {
+    lbl.style.display = 'none';
+  }
+}
+
+function buildFilterParams(f) {
+  const params = new URLSearchParams();
+  f.kinmu.forEach(v => params.append('kinmu', v));
+  f.shubetsu.forEach(v => params.append('shubetsu', v));
+  if (f.year) params.append('year', f.year);
+  if (f.month) params.append('month', f.month);
+  if (f.day) params.append('day', f.day);
+  return params;
+}
+
+async function loadFilterOptions() {
+  try {
+    const r = await fetch('/api/filter-options');
+    if (!r.ok) return;
+    const d = await r.json();
+    const sel = document.getElementById('filterYear');
+    d.years.forEach(y => {
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.textContent = y + '年';
+      sel.appendChild(opt);
+    });
+    // 日ドロップダウンを動的生成
+    const daysel = document.getElementById('filterDay');
+    for (let i = 1; i <= 31; i++) {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = i + '日';
+      daysel.appendChild(opt);
+    }
+  } catch (_) {}
+}
+
+function loadSettings() {
+  document.getElementById('toggleHideWriter').checked = localStorage.getItem('hideWriter') === '1';
+  document.getElementById('settingTopK').value = localStorage.getItem('topK') || '5';
+  const searchTopK = localStorage.getItem('searchTopK') || '40';
+  document.getElementById('settingSearchTopK').value = searchTopK;
+  document.getElementById('settingRecency').value = localStorage.getItem('recencyWeight') || '0';
+  onModeChange();
+  loadEquipSamples();
+  loadFilterOptions();
+}
+
+async function loadEquipSamples() {
+  try {
+    const r = await fetch('/api/equip-samples');
+    if (!r.ok) return;
+    const d = await r.json();
+    const radio = document.querySelector(`input[name=equipSamples][value="${d.samples}"]`);
+    if (radio) radio.checked = true;
+  } catch (_) {}
+}
+
+async function saveEquipSamples(val) {
+  try {
+    const r = await fetch('/api/equip-samples', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({samples: parseInt(val, 10)}),
+    });
+    if (!r.ok) {
+      const d = await r.json();
+      alert('設定保存失敗: ' + (d.detail || r.status));
+    }
+  } catch (e) {
+    alert('設定保存失敗: ' + e.message);
+  }
+}
+
+/* ===== モデル設定 ===== */
+
+async function loadOllamaModels() {
+  const sel = document.getElementById('settingModel');
+  sel.innerHTML = '<option value="">読込中...</option>';
+  document.getElementById('modelStatus').textContent = '';
+  try {
+    const r = await fetch('/api/ollama-models');
+    if (!r.ok) { const d = await r.json(); throw new Error(d.detail); }
+    const d = await r.json();
+    if (d.models.length === 0) {
+      sel.innerHTML = '<option value="">モデルなし</option>';
+      return;
+    }
+    sel.innerHTML = d.models.map(m =>
+      `<option value="${escapeHtml(m)}"${m === d.current ? ' selected' : ''}>${escapeHtml(m)}</option>`
+    ).join('');
+  } catch (e) {
+    sel.innerHTML = '<option value="">取得失敗</option>';
+    document.getElementById('modelStatus').textContent = 'エラー: ' + e.message;
+  }
+}
+
+async function applyModel() {
+  const sel = document.getElementById('settingModel');
+  const model = sel.value;
+  if (!model) return;
+  const statusEl = document.getElementById('modelStatus');
+  const btn = document.getElementById('btnApplyModel');
+  btn.disabled = true;
+  statusEl.textContent = '適用中...';
+  statusEl.style.color = '#718096';
+  try {
+    const r = await fetch('/api/model', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model }),
+    });
+    const d = await r.json();
+    if (r.ok) {
+      statusEl.textContent = `✓ ${d.model} に切り替えました（次回起動時もこのモデルを使用）`;
+      statusEl.style.color = '#276749';
+      document.getElementById('modelBadge').textContent = d.model;
+    } else {
+      statusEl.textContent = 'エラー: ' + d.detail;
+      statusEl.style.color = '#c53030';
+    }
+  } catch (e) {
+    statusEl.textContent = 'エラー: ' + e.message;
+    statusEl.style.color = '#c53030';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ===== 思考モード ===== */
+
+async function loadReasoningState() {
+  try {
+    const r = await fetch('/api/reasoning');
+    if (!r.ok) return;
+    const d = await r.json();
+    document.getElementById('toggleReasoning').checked = !!d.enabled;
+    document.getElementById('reasoningStatus').textContent = '';
+  } catch { /* ignore */ }
+}
+
+async function applyReasoning() {
+  const enabled = document.getElementById('toggleReasoning').checked;
+  const statusEl = document.getElementById('reasoningStatus');
+  statusEl.textContent = '切り替え中...';
+  statusEl.style.color = '#718096';
+  try {
+    const r = await fetch('/api/reasoning', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    const d = await r.json();
+    if (r.ok) {
+      statusEl.textContent = `✓ 思考モード: ${d.enabled ? 'ON' : 'OFF'}`;
+      statusEl.style.color = '#276749';
+    } else {
+      document.getElementById('toggleReasoning').checked = !enabled;
+      statusEl.textContent = 'エラー: ' + d.detail;
+      statusEl.style.color = '#c53030';
+    }
+  } catch (e) {
+    document.getElementById('toggleReasoning').checked = !enabled;
+    statusEl.textContent = 'エラー: ' + e.message;
+    statusEl.style.color = '#c53030';
+  }
+}
+
+/* ===== DB管理 ===== */
+
+let evtSource = null;
+let lastLogMsg = '';
+
+document.getElementById('csvFile').addEventListener('change', function () {
+  const file = this.files[0];
+  const label = document.getElementById('fileLabel');
+  if (file) {
+    label.classList.add('has-file');
+    label.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> ${escapeHtml(file.name)}`;
+    document.getElementById('btnDiff').disabled = false;
+    document.getElementById('btnRebuild').disabled = false;
+  } else {
+    label.classList.remove('has-file');
+    label.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M16 8l-4-4-4 4M12 4v12"/></svg> CSV/Excelを選択`;
+    document.getElementById('btnDiff').disabled = true;
+    document.getElementById('btnRebuild').disabled = true;
+  }
+});
+
+function confirmRebuild() {
+  if (confirm('全件再構築すると既存のDBを削除して全レコードを再インジェストします。\nよろしいですか？')) {
+    startIngest(true);
+  }
+}
+
+async function startIngest(rebuild) {
+  const fileInput = document.getElementById('csvFile');
+  if (!fileInput.files[0]) return;
+
+  lastLogMsg = '';
+  const logArea = document.getElementById('logArea');
+  logArea.innerHTML = '';
+  document.getElementById('progressSection').classList.remove('hidden');
+
+  const fill = document.getElementById('progressFill');
+  fill.className = 'progress-bar-fill indeterminate';
+  document.getElementById('progressText').textContent = '開始中...';
+  document.getElementById('progressPct').textContent = '';
+
+  document.getElementById('btnDiff').disabled = true;
+  document.getElementById('btnRebuild').disabled = true;
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+
+  try {
+    const resp = await fetch(`/api/ingest?rebuild=${rebuild}`, { method: 'POST', body: formData });
+    if (!resp.ok) {
+      const d = await resp.json();
+      throw new Error(d.detail || resp.statusText);
+    }
+    connectIngestStream();
+  } catch (e) {
+    appendLog(`エラー: ${e.message}`, 'log-error');
+    setProgressDone(false);
+    document.getElementById('btnDiff').disabled = false;
+    document.getElementById('btnRebuild').disabled = false;
+  }
+}
+
+function connectIngestStream() {
+  if (evtSource) evtSource.close();
+  evtSource = new EventSource('/api/ingest/stream');
+
+  evtSource.onmessage = (e) => {
+    const state = JSON.parse(e.data);
+    updateProgressUI(state);
+
+    if (state.done || (!state.running && !state.done)) {
+      evtSource.close();
+      evtSource = null;
+      setProgressDone(!state.error);
+      if (!state.error) refreshDbStatus();
+      document.getElementById('btnDiff').disabled = false;
+      document.getElementById('btnRebuild').disabled = false;
+    }
+  };
+
+  evtSource.onerror = () => {
+    if (evtSource) { evtSource.close(); evtSource = null; }
+    appendLog('接続エラー', 'log-error');
+    setProgressDone(false);
+    document.getElementById('btnDiff').disabled = false;
+    document.getElementById('btnRebuild').disabled = false;
+  };
+}
+
+function updateProgressUI(state) {
+  const fill = document.getElementById('progressFill');
+  const textEl = document.getElementById('progressText');
+  const pctEl = document.getElementById('progressPct');
+
+  if (state.total > 0) {
+    const pct = Math.min(100, Math.round((state.progress / state.total) * 100));
+    fill.className = 'progress-bar-fill';
+    fill.style.width = pct + '%';
+    textEl.textContent = `${state.progress.toLocaleString()} / ${state.total.toLocaleString()} 件`;
+    pctEl.textContent = pct + '%';
+  } else {
+    fill.className = 'progress-bar-fill indeterminate';
+    textEl.textContent = state.message || '処理中...';
+    pctEl.textContent = '';
+  }
+
+  if (state.message && state.message !== lastLogMsg) {
+    appendLog(state.message, state.error ? 'log-error' : (state.done ? 'log-done' : ''));
+    lastLogMsg = state.message;
+  }
+}
+
+function appendLog(msg, cls = '') {
+  const logArea = document.getElementById('logArea');
+  const t = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = `[${t}] ${msg}`;
+  logArea.appendChild(line);
+  logArea.scrollTop = logArea.scrollHeight;
+}
+
+function setProgressDone(success) {
+  const fill = document.getElementById('progressFill');
+  fill.style.width = '100%';
+  fill.className = 'progress-bar-fill ' + (success ? 'done' : 'error');
+  if (success) document.getElementById('progressPct').textContent = '完了';
+}
+
+async function refreshDbStatus() {
+  try {
+    const r = await fetch('/api/db-status');
+    const d = await r.json();
+    document.getElementById('statRecords').textContent = d.records.toLocaleString();
+    document.getElementById('statBm25').textContent = d.bm25_indexed.toLocaleString();
+    updateHealthBadge(d.records, d.bm25_indexed);
+  } catch { /* ignore */ }
+}
+
+/* ===== ヘルスバッジ ===== */
+
+function updateHealthBadge(records, bm25) {
+  const el = document.getElementById('healthBadge');
+  el.textContent = `DB: ${records.toLocaleString()} 件`;
+  el.style.background = '#2f855a';
+}
+
+async function checkHealth() {
+  try {
+    const r = await fetch('/api/health');
+    const d = await r.json();
+    const el = document.getElementById('healthBadge');
+    if (d.status === 'ok') {
+      updateHealthBadge(d.records, d.bm25_indexed);
+      document.getElementById('statRecords').textContent = d.records.toLocaleString();
+      document.getElementById('statBm25').textContent = d.bm25_indexed.toLocaleString();
+      if (d.llm_model) {
+        document.getElementById('modelBadge').textContent = d.llm_model;
+      }
+      if (typeof d.llm_reasoning === 'boolean') {
+        document.getElementById('toggleReasoning').checked = d.llm_reasoning;
+      }
+    } else {
+      el.textContent = 'エラー';
+      el.style.background = '#c53030';
+    }
+  } catch {
+    document.getElementById('healthBadge').textContent = '接続失敗';
+    document.getElementById('healthBadge').style.background = '#c53030';
+  }
+}
+
+/* ===== 検索 ===== */
+
+let currentAbortController = null;
+let _rawAnswer = '';
+
+function abortQuery() {
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
+}
+
+function showStopButton(on) {
+  document.getElementById('btnStop').style.display = on ? '' : 'none';
+}
+
+function setSearchLoading(on) {
+  const btn = document.getElementById('btnSearch');
+  btn.disabled = on;
+  btn.classList.toggle('loading', on);
+}
+
+const MODE_DESCS = {
+  ai:      '関連記録を根拠にAIが日本語で回答 — 件数・集計・季節傾向クエリも自動対応',
+  related: '関連度スコア上位を表示 — 設備名・日付・キーワード検索に最適',
+  scan:    'キーワードを含む全記録を漏れなく表示 — 設備名などの単語入力が最適です。',
+};
+
+const MODE_PLACEHOLDERS = {
+  ai:      '例1: 原水ポンプに関する故障の傾向は？\n例2: 次亜塩素酸ナトリウムの搬入回数は？',
+  related: '例1: 沈砂池スクリーン 故障\n例2: UV計 2024年',
+  scan:    '例1: 初期雨水ポンプ\n例2: 塩素注入機',
+};
+
+function onModeChange() {
+  const mode = document.querySelector('input[name=searchMode]:checked').value;
+  document.getElementById('modeDesc').innerText = MODE_DESCS[mode] || '';
+  document.getElementById('question').placeholder = MODE_PLACEHOLDERS[mode] || '';
+}
+
+function doSearch() {
+  const mode = document.querySelector('input[name=searchMode]:checked').value;
+  if (mode === 'ai') doQueryAI();
+  else if (mode === 'related') doQuery();
+  else doQueryScan();
+}
+
+function showError(msg) {
+  const el = document.getElementById('error');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function hideError() {
+  document.getElementById('error').classList.add('hidden');
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderTag(label, value, cls = '') {
+  if (!value) return '';
+  return `<span class="tag ${cls}">${label ? label + ': ' : ''}${escapeHtml(value)}</span>`;
+}
+
+let _lastSources = null;
+let _lastRoute = null;
+
+const ROUTE_LABELS = {
+  count:          '件数カウント（全件スキャン）',
+  aggregation:    '集計・ランキング（全件スキャン）',
+  seasonal:       '季節傾向（全件スキャン）',
+  equip_tendency: '設備別傾向（全件スキャン）',
+  rag:            'ハイブリッド検索',
+  fullscan:       '全件テキストスキャン',
+};
+
+function renderSources(sources, route) {
+  if (sources !== null) { _lastSources = sources; _lastRoute = route ?? null; }
+  const src = _lastSources;
+  if (!src) return;
+  const hideWriter = document.getElementById('toggleHideWriter').checked;
+  const section = document.getElementById('sourcesSection');
+  const routeLabel = _lastRoute ? ` — ${ROUTE_LABELS[_lastRoute] || _lastRoute}` : '';
+  document.getElementById('sourcesTitle').textContent = `参照した引継ぎ記録 (${src.length} 件)${routeLabel}`;
+  document.getElementById('sourcesList').innerHTML = src.map((s) => {
+    const m = s.metadata || {};
+    const contentMatch = (s.document || '').match(/^内容: (.*)/m);
+    const content = contentMatch ? contentMatch[1] : '';
+    const tags = [
+      renderTag('', m['日付'] + (m['曜日'] ? `(${m['曜日']})` : ''), ''),
+      renderTag('', m['勤務'], ''),
+      renderTag('', m['種別'], `shubetsu-${m['種別']}`),
+      renderTag('', m['時刻'], ''),
+      m['故障'] ? renderTag('故障', m['故障'], 'kosho') : '',
+      !hideWriter ? renderTag('記入者', m['記入者'], '') : '',
+    ].filter(Boolean).join('');
+    return `<div class="source-item">
+      <div class="source-meta">${tags}</div>
+      <div class="source-content">${escapeHtml(content)}</div>
+    </div>`;
+  }).join('');
+  section.classList.remove('hidden');
+}
+
+async function doQueryAI() {
+  const q = document.getElementById('question').value.trim();
+  if (!q) return;
+  hideError();
+  _rawAnswer = '';
+  document.getElementById('answerSection').classList.remove('hidden');
+  document.getElementById('answerText').innerHTML = '';
+  document.getElementById('sourcesSection').classList.add('hidden');
+  setSearchLoading(true);
+  showStopButton(true);
+
+  currentAbortController = new AbortController();
+  try {
+    const topK = parseInt(document.getElementById('settingTopK').value);
+    const recencyWeight = parseFloat(document.getElementById('settingRecency').value || '0');
+    const sf = getActiveFilter();
+    const r = await fetch('/api/query/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question: q, top_k: topK, recency_weight: recencyWeight,
+        filter_kinmu: sf.kinmu, filter_shubetsu: sf.shubetsu,
+        filter_year: sf.year, filter_month: sf.month, filter_day: sf.day,
+      }),
+      signal: currentAbortController.signal,
+    });
+    if (!r.ok) { const d = await r.json(); throw new Error(d.detail); }
+
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = JSON.parse(line.slice(6));
+        if (data.type === 'sources') {
+          renderSources(data.sources);
+        } else if (data.type === 'chunk') {
+          _rawAnswer += data.text;
+          document.getElementById('answerText').innerHTML = markdownToHtml(_rawAnswer);
+        } else if (data.type === 'reset') {
+          _rawAnswer = '';
+          document.getElementById('answerText').innerHTML = '';
+        }
+      }
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      if (!_rawAnswer) document.getElementById('answerSection').classList.add('hidden');
+    } else {
+      showError('エラー: ' + e.message);
+    }
+  } finally {
+    currentAbortController = null;
+    setSearchLoading(false);
+    showStopButton(false);
+  }
+}
+
+async function doQuery() {
+  const q = document.getElementById('question').value.trim();
+  if (!q) return;
+  hideError();
+  document.getElementById('answerSection').classList.add('hidden');
+  document.getElementById('sourcesSection').classList.add('hidden');
+  setSearchLoading(true);
+  try {
+    const topK = parseInt(document.getElementById('settingSearchTopK').value);
+    const sf = getActiveFilter();
+    const params = new URLSearchParams({ q, top_k: topK });
+    buildFilterParams(sf).forEach((v, k) => params.append(k, v));
+    const r = await fetch(`/api/search?${params}`);
+    if (!r.ok) { const d = await r.json(); throw new Error(d.detail); }
+    const d = await r.json();
+    renderSources(d.results, d.route);
+  } catch (e) {
+    showError('エラー: ' + e.message);
+  } finally {
+    setSearchLoading(false);
+  }
+}
+
+async function doQueryScan() {
+  const q = document.getElementById('question').value.trim();
+  if (!q) return;
+  hideError();
+  document.getElementById('answerSection').classList.add('hidden');
+  document.getElementById('sourcesSection').classList.add('hidden');
+  setSearchLoading(true);
+  try {
+    const topK = parseInt(document.getElementById('settingSearchTopK').value);
+    const sf = getActiveFilter();
+    const params = new URLSearchParams({ q, top_k: topK, scan: 'true' });
+    buildFilterParams(sf).forEach((v, k) => params.append(k, v));
+    const r = await fetch(`/api/search?${params}`);
+    if (!r.ok) { const d = await r.json(); throw new Error(d.detail); }
+    const d = await r.json();
+    renderSources(d.results, d.route);
+  } catch (e) {
+    showError('エラー: ' + e.message);
+  } finally {
+    setSearchLoading(false);
+  }
+}
+
+loadSettings();
+checkHealth();
+
+document.getElementById('question').addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    doSearch();
+  }
+});
+</script>
+</body>
+</html>

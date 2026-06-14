@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+langchain
+langchain-core
+langchain-community
+langchain-ollama
+langchain-chroma
+chromadb
+rank-bm25
+sentence-transformers
+httpx
+python-multipart
+sudachipy
+sudachidict_full
+neologdn
+openpyxl

@@ -1,0 +1,4 @@
+{
+  "llm_model": "qwen2.5:14b",
+  "llm_reasoning": false
+}

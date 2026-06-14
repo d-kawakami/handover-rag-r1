@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ユーザー辞書管理 - 引継ぎノート RAG</title>
+<link rel="stylesheet" href="/static/dict_admin.css">
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>ユーザー辞書管理</h1>
+    <span class="badge" id="modeBadge">モード読込中</span>
+  </div>
+  <a href="/" class="header-back">← 検索に戻る</a>
+</header>
+
+<div class="container">
+
+  <!-- ===== 操作バー + 用語一覧 ===== -->
+  <div class="card">
+    <div class="card-title">登録用語一覧</div>
+    <div class="op-bar">
+      <input type="text" id="searchInput" placeholder="用語・読みで検索..." oninput="onSearchInput()">
+      <button class="btn btn-primary btn-sm" onclick="openAddModal()">＋ 新規追加</button>
+      <label class="file-label btn-sm" id="importLabel" for="importFile">
+        CSVインポート
+      </label>
+      <input type="file" id="importFile" class="hidden" accept=".csv" onchange="handleImport(this)">
+      <button class="btn btn-secondary btn-sm" onclick="doExport()">CSVエクスポート</button>
+    </div>
+
+    <div class="table-wrap">
+      <table id="dictTable">
+        <thead>
+          <tr>
+            <th>表記</th>
+            <th>読み（カタカナ）</th>
+            <th>正規化表記</th>
+            <th>品詞</th>
+            <th>コスト</th>
+            <th>状態</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="dictBody">
+          <tr><td colspan="7" style="text-align:center;color:#a0aec0;padding:24px">読込中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      <button class="btn btn-sm btn-secondary" id="btnPrev" onclick="changePage(-1)" disabled>← 前へ</button>
+      <span id="pageInfo">—</span>
+      <button class="btn btn-sm btn-secondary" id="btnNext" onclick="changePage(1)" disabled>次へ →</button>
+    </div>
+    <div id="listError" class="error-box hidden"></div>
+  </div>
+
+  <!-- ===== 辞書反映エリア ===== -->
+  <div class="card">
+    <div class="card-title">辞書設定・反映</div>
+    <div class="rebuild-row">
+      <label style="font-size:.88rem;font-weight:600;color:#4a5568">分割モード:</label>
+      <select class="mode-select" id="modeSelect" onchange="onModeChange()">
+        <option value="C">C（複合語を1語に保つ・推奨）</option>
+        <option value="B">B（中程度）</option>
+        <option value="A">A（細かく分割）</option>
+      </select>
+      <button class="btn btn-primary" id="btnRebuild" onclick="doRebuild()">
+        <span class="spinner" id="spinRebuild"></span>
+        辞書を反映
+      </button>
+    </div>
+    <div class="result-msg" id="rebuildMsg"></div>
+  </div>
+
+  <!-- ===== テスト入力エリア ===== -->
+  <div class="card">
+    <div class="card-title">形態素解析テスト</div>
+    <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap">
+      <textarea id="testInput" placeholder="テスト文を入力..."
+        style="flex:1;min-width:200px;padding:10px;border:1.5px solid #cbd5e0;border-radius:8px;font-size:.9rem;resize:vertical;min-height:60px;font-family:inherit;transition:border .2s"
+        onfocus="this.style.borderColor='#3182ce'" onblur="this.style.borderColor='#cbd5e0'"></textarea>
+      <button class="btn btn-secondary" onclick="doTest()">解析</button>
+    </div>
+    <div class="token-area" id="tokenArea"></div>
+  </div>
+
+  <!-- ===== AI候補抽出エリア ===== -->
+  <div class="card">
+    <div class="card-title">AI 辞書候補抽出</div>
+    <div class="suggest-header">
+      <button class="btn btn-primary" id="btnSuggest" onclick="doSuggest()">
+        <span class="spinner" id="spinSuggest"></span>
+        候補を自動抽出
+      </button>
+      <span class="suggest-status" id="suggestStatus"></span>
+    </div>
+
+    <div id="suggestTableArea" class="hidden">
+      <div class="suggest-table-wrap">
+        <table class="suggest-table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="checkAll" onchange="toggleAllSuggest(this)" title="すべて選択/解除"></th>
+              <th>文書中の表記</th>
+              <th>正規化表記（編集可）</th>
+              <th>読み（編集可）</th>
+              <th>理由</th>
+              <th>除外</th>
+            </tr>
+          </thead>
+          <tbody id="suggestBody"></tbody>
+        </table>
+      </div>
+      <div class="suggest-register-bar">
+        <button class="btn btn-success btn-sm" id="btnRegisterSuggest" onclick="doRegisterSuggest()">選択を登録</button>
+        <span class="suggest-reg-result" id="suggestRegResult"></span>
+      </div>
+    </div>
+    <div id="suggestError" class="error-box hidden"></div>
+  </div>
+
+</div>
+
+<!-- ===== 追加・編集モーダル ===== -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="modalTitle">用語を追加</h3>
+    <input type="hidden" id="editId">
+    <div class="form-row">
+      <label>表記（surface）<span style="color:#e53e3e">*</span></label>
+      <input type="text" id="fSurface" placeholder="例: 冷却水ポンプ" onblur="checkDuplicateSurface()">
+    </div>
+    <div id="dupWarn" class="dup-warn hidden"></div>
+    <div class="form-row">
+      <label>読み（カタカナ）<span style="color:#e53e3e">*</span></label>
+      <input type="text" id="fReading" placeholder="例: レイキャクスイポンプ">
+    </div>
+    <div class="form-row">
+      <label>正規化表記</label>
+      <input type="text" id="fNormalized" placeholder="例: 最終沈殿池（空欄=表記と同じ）">
+      <div class="hint">複数表記を1語に統一したい場合に使用（例: 最沈 → 最終沈殿池）</div>
+    </div>
+    <div class="form-row">
+      <label>品詞</label>
+      <input type="text" id="fPos" value="名詞,固有名詞,一般">
+      <div class="hint">カンマ区切りで最大3要素</div>
+    </div>
+    <div class="form-row">
+      <label>コスト（低いほど優先度が高い）</label>
+      <input type="number" id="fCost" value="5000" min="0" max="99999">
+    </div>
+    <div class="form-row">
+      <label>状態</label>
+      <select id="fEnabled">
+        <option value="1">有効</option>
+        <option value="0">無効</option>
+      </select>
+    </div>
+    <div id="modalError" class="error-box hidden"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModalDirect()">キャンセル</button>
+      <button class="btn btn-primary" id="btnModalSave" onclick="saveEntry()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/dict_admin.js"></script>
+</body>
+</html>
