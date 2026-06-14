@@ -113,7 +113,7 @@ ollama pull nomic-embed-text
 ### 1. Get the repository
 
 ```bash
-git clone https://github.com/your-org/handover-rag-r1.git ~/handover-rag-r1
+git clone https://github.com/d-kawakami/handover-rag-r1.git ~/handover-rag-r1
 ```
 
 > If you downloaded a ZIP from GitHub, extract it to `~/handover-rag-r1/`.
