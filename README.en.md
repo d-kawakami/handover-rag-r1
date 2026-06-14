@@ -81,7 +81,7 @@ handover-rag-r1/
 | Item | Details |
 |---|---|
 | Machine | Mac mini M4 Pro |
-| Memory | 64GB |
+| Memory | 48GB |
 
 ## Prerequisites
 
