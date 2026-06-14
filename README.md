@@ -189,7 +189,7 @@ ollama pull nomic-embed-text
 ### 1. リポジトリの取得
 
 ```bash
-git clone https://github.com/your-org/handover-rag-r1.git ~/handover-rag-r1
+git clone https://github.com/d-kawakami/handover-rag-r1.git ~/handover-rag-r1
 ```
 
 > GitHub からダウンロードした場合は ZIP を解凍して `~/handover-rag-r1/` に配置してください。
