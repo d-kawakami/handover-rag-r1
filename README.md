@@ -200,7 +200,7 @@ git clone https://github.com/d-kawakami/handover-rag-r1.git ~/handover-rag-r1
 
 ### 2. CSV/XLSX ファイルを配置
 
-引継ぎノートのファイル（CSV または XLSX）をプロジェクトの**カレントディレクトリ**（`~/handover-rag-r1/`）に置きます。
+引継ぎノートのファイル（CSV または XLSX）をプロジェクトの**カレントディレクトリ**（`~/handover-rag-r1/`）に置きます。このリポジトリにはサンプルとしてhandover_sample.xlsxが含まれています。
 
 ファイル名が `引き継ぎノート*.csv` または `引き継ぎノート*.xlsx` の形式であれば自動検出されます。
 
