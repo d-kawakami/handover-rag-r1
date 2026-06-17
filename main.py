@@ -550,7 +550,7 @@ def aggregate_for_query(query: str, sf: SearchFilter | None = None) -> tuple[str
 _FAILURE_TYPE_SET = frozenset({"故障", "故障処置"})
 _GENERIC_SUBJECTS = frozenset({"故障", "障害", "不具合", "トラブル", "発生", "故障全般"})
 
-EQUIPMENT_TENDENCY_MAX_SAMPLES = 30  # LLMへ渡す代表記録の上限（トークン溢れ防止）
+EQUIPMENT_TENDENCY_MAX_SAMPLES = 20  # LLMへ渡す代表記録の上限（トークン溢れ防止）
 
 _EQUIP_TENDENCY_KWS = [
     '傾向', 'パターン', '特徴', 'しやすい', 'なりやすい',
