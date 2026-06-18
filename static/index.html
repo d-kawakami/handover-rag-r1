@@ -335,7 +335,7 @@
           <option value="50">50件</option>
         </select>
       </div>
-      <div class="setting-hint">AI回答時に参照する引継ぎ記録の件数。増やすほど幅広い記録を考慮した回答になりますが、応答時間が長くなります。上限50件（推奨: 5〜20件）。件数・集計系の質問は全件スキャンのため設定値は影響しません。</div>
+      <div class="setting-hint">AI回答時に参照する引継ぎ記録の件数。上限50件（推奨: 5〜20件）。件数・集計系の質問は全件スキャン。</div>
       <div class="toggle-row">
         <span class="toggle-label">検索件数</span>
         <select id="settingSearchTopK" onchange="saveSettings()">
@@ -349,7 +349,7 @@
           <option value="100">100件</option>
         </select>
       </div>
-      <div class="setting-hint">「検索のみ」ボタンで一覧表示する件数。増やすと表示件数が増えますが、その分処理が遅くなります。上限100件（推奨: 20〜40件）。</div>
+      <div class="setting-hint">「検索のみ」ボタンで一覧表示する件数。上限100件（推奨: 20〜40件）。</div>
       <div class="toggle-row">
         <span class="toggle-label">新着優先</span>
         <select id="settingRecency" onchange="saveSettings()">
@@ -370,7 +370,7 @@
           <input type="radio" name="equipSamples" id="equip100" value="100" onchange="saveEquipSamples(this.value)"> <label for="equip100">100件</label>
         </div>
       </div>
-      <div class="setting-hint">「〜の故障の傾向は？」などの設備別傾向質問でLLMへ渡す代表記録数。増やすほど詳細な分析になりますが、応答時間が長くなりトークン溢れのリスクが上がります（推奨: 20〜30件）。</div>
+      <div class="setting-hint">「〜の故障の傾向は？」などの設備別傾向質問でLLMへ渡す代表記録数。（推奨: 20〜30件）。</div>
     </div>
 
     <!-- DB管理 -->
