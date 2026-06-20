@@ -155,7 +155,7 @@ handover-rag-r1/
 
 | 項目 | 詳細 |
 |---|---|
-| マシン | Mac mini M4 Pro |
+| マシン | Mac M4 Pro |
 | メモリ | 48GB |
 
 ## 前提条件
