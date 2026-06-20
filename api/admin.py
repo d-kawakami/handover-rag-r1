@@ -92,7 +92,8 @@ def change_model(req: ModelChangeRequest):
             new_llm = OllamaLLM(
                 model=req.model,
                 base_url=OLLAMA_BASE_URL,
-                reasoning=state.llm_reasoning or None,
+                # False を明示的に渡すことで qwen3 系の think モード既定値（ON）を上書きする
+                reasoning=state.llm_reasoning,
             )
             state.llm = new_llm
             state.llm_model = req.model
@@ -117,7 +118,8 @@ def set_reasoning(req: ReasoningRequest):
             new_llm = OllamaLLM(
                 model=state.llm_model,
                 base_url=OLLAMA_BASE_URL,
-                reasoning=req.enabled or None,
+                # OFF を明示的に Ollama へ伝えるため False をそのまま渡す
+                reasoning=req.enabled,
             )
             state.llm = new_llm
             state.llm_reasoning = req.enabled

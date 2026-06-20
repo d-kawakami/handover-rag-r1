@@ -64,7 +64,9 @@ async def lifespan(app: FastAPI):
         state.llm = OllamaLLM(
             model=state.llm_model,
             base_url=OLLAMA_BASE_URL,
-            reasoning=state.llm_reasoning or None,
+            # 注: `False or None` は None になり、qwen3 系の think モード既定値（ON）が
+            # そのまま使われてしまう。False を明示的に渡して think=false を強制する。
+            reasoning=state.llm_reasoning,
         )
 
         log.info("Re-ranker ロード中: %s", RERANKER_MODEL)
@@ -84,6 +86,23 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="引継ぎノート RAG", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.middleware("http")
+async def no_cache_api_responses(request, call_next):
+    """/api/* レスポンスをブラウザがキャッシュしないようにする。
+
+    Safari は Cache-Control 未指定の GET レスポンスを積極的にキャッシュする
+    ため、思考モード ON/OFF や モデル切替などの状態取得 API でステートが
+    UI に古いまま残る現象が起きる。明示的に no-store を返してこれを防ぐ。
+    """
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 
 app.include_router(query.router)
 app.include_router(search.router)

@@ -22,6 +22,19 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _log_rag_context(route_name: str, question: str, docs: list, context: str) -> None:
+    """LLM に渡す context のダイジェストを INFO ログに残す。
+
+    「該当なし」が返るとき、本当に context に関連語が無かったのか、それとも
+    context にあるのに LLM が見落としたのかを後追いできる。
+    """
+    preview = context[:300].replace("\n", " ⏎ ")
+    log.info(
+        "RAG[%s] q=%r docs=%d ctx_chars=%d preview=%s",
+        route_name, question, len(docs), len(context), preview,
+    )
+
+
 @router.post("/api/query", response_model=QueryResponse)
 def query(req: QueryRequest):
     if not req.question.strip():
@@ -37,6 +50,7 @@ def query(req: QueryRequest):
 
     if route is not None:
         context, docs = route.handler(req.question, sf_or_none)
+        _log_rag_context(route.name, req.question, docs, context)
         try:
             chain = route.prompt | state.llm | StrOutputParser()
             answer = sanitize_if_chinese(chain.invoke({"context": context, "question": req.question}))
@@ -51,6 +65,7 @@ def query(req: QueryRequest):
             raise HTTPException(status_code=500, detail=f"検索エラー: {e}")
         try:
             context = format_docs(docs)
+            _log_rag_context("rag", req.question, docs, context)
             chain = RAG_PROMPT | state.llm | StrOutputParser()
             answer = sanitize_if_chinese(chain.invoke({"context": context, "question": req.question}))
         except Exception as e:
@@ -76,6 +91,7 @@ async def query_stream(req: QueryRequest, request: Request):
     if route is not None:
         context, docs = route.handler(req.question, sf_or_none)
         prompt = route.prompt
+        route_name = route.name
     else:
         try:
             docs = search_docs(
@@ -85,6 +101,9 @@ async def query_stream(req: QueryRequest, request: Request):
             raise HTTPException(status_code=500, detail=f"検索エラー: {e}")
         context = format_docs(docs[:LLM_CONTEXT_K])
         prompt = RAG_PROMPT
+        route_name = "rag"
+
+    _log_rag_context(route_name, req.question, docs, context)
 
     sources = [{"document": d.page_content, "metadata": d.metadata} for d in docs]
     filter_suffix = f"\n\n（絞り込み条件: {sf.label()}）" if sf_or_none else ""
