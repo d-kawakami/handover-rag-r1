@@ -10,6 +10,8 @@ import site
 import neologdn
 import sudachipy
 
+from normalizer import normalize_notation
+
 log = logging.getLogger(__name__)
 
 _FILTER_POS = frozenset({'助詞', '助動詞', '記号', '空白', '補助記号'})
@@ -55,6 +57,7 @@ class JapaneseTokenizer:
 
     def tokenize(self, text: str) -> list[str]:
         text = neologdn.normalize(text)
+        text = normalize_notation(text)
         try:
             morphemes = self._tok_obj.tokenize(text, self._mode)
         except Exception as exc:

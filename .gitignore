@@ -56,3 +56,7 @@ logs/
 tests/results/
 tests/*.jsonl
 tests/*.output
+tests/*
+tests
+
+Modelfile.*

@@ -15,6 +15,8 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_ollama import OllamaEmbeddings
 
+from normalizer import normalize_notation
+
 BASE_DIR = Path.cwd()
 CSV_GLOB = "引き継ぎノート*.csv"
 XLSX_GLOB = "引き継ぎノート*.xlsx"
@@ -89,7 +91,7 @@ def _parse_row(row: list[str], i: int) -> tuple[str, Document] | None:
     if len(row) < 8:
         return None
     # row[0]: 空欄, row[1]: 行番号（無視）
-    content = row[7].strip().replace("　", " ")
+    content = normalize_notation(row[7].strip().replace("　", " "))
     if not content:
         return None
 
