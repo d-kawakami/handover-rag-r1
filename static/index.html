@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>引継ぎノート RAG 検索</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -31,7 +31,11 @@
   }
   .settings-backdrop.open { opacity: 1; pointer-events: auto; }
   .settings-drawer {
-    position: fixed; top: 0; right: 0; width: min(380px, 100vw); height: 100vh;
+    position: fixed; top: 0; right: 0; width: min(380px, 100vw);
+    /* Android のシステムナビゲーションバー / iOS のホームバー領域を除いた
+       実表示領域を使う。古いブラウザ向けに 100vh をフォールバックで残す。 */
+    height: 100vh;
+    height: 100dvh;
     background: white; box-shadow: -4px 0 24px rgba(0,0,0,.18);
     z-index: 101; overflow-y: auto; display: flex; flex-direction: column;
     transform: translateX(100%); transition: transform .25s ease;
@@ -50,7 +54,13 @@
     display: flex; line-height: 1;
   }
   .btn-close:hover { color: white; background: rgba(255,255,255,.15); }
-  .drawer-body { padding: 14px 20px; flex: 1; }
+  .drawer-body {
+    padding: 14px 20px;
+    /* Android ナビバー / iOS ホームバーの上に最終ボタンが隠れないよう
+       下部に safe-area + 余白を確保する。 */
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    flex: 1;
+  }
   .drawer-section { margin-bottom: 18px; }
   .drawer-section-title {
     font-size: 0.7rem; text-transform: uppercase; letter-spacing: .1em;
