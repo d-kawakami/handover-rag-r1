@@ -198,6 +198,18 @@ git clone https://github.com/d-kawakami/handover-rag-r1.git ~/handover-rag-r1
 > `config.json` はアプリが自動生成するため git 管理外です。テンプレートは `config.json.example` を参照してください。  
 > ない場合は LLM モデル `qwen2.5:14b`・reasoning 無効のデフォルトで起動します。
 
+> **⚠️ qwen3 系モデルを使用する場合の注意**  
+> `qwen3.6:35b-a3b` や `qwen3:30b-a3b` など **qwen3 系は Ollama 側の既定で「思考モード（think）」が ON** です。
+> 思考モードが有効だと 1 回の回答に **数十秒〜1 分以上**かかり、本アプリの大半の用途では遅すぎます。  
+> 必ず以下のいずれかで明示的に OFF にしてください:
+>
+> - 設定画面の「Reasoning（拡張思考）」トグルを OFF（推奨）
+> - もしくは `curl -X POST http://localhost:8000/api/reasoning -H "Content-Type: application/json" -d '{"enabled": false}'`
+> - もしくは `config.json` に `"llm_reasoning": false` を書く
+>
+> 設定値は `config.json` に保存され、次回起動時に Ollama API へ明示的に `think: false` を送信します。
+> `qwen2.5` 系は思考モードに対応していないため、この設定は無視されます（副作用なし）。
+
 ### 2. CSV/XLSX ファイルを配置
 
 引継ぎノートのファイル（CSV または XLSX）をプロジェクトの**カレントディレクトリ**（`~/handover-rag-r1/`）に置きます。このリポジトリにはサンプルとしてhandover_sample.xlsxが含まれています。
