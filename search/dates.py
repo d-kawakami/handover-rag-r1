@@ -199,10 +199,33 @@ _RELATIVE_DAYS: dict[str, int] = {
 }
 
 
+def _is_word_match(query: str, kw: str) -> bool:
+    """`kw` がクエリ中で「漢字複合語の一部ではなく」現れるかを判定する。
+
+    直後の文字が CJK 統合漢字なら複合語の一部とみなして False。
+    例:
+      「最近の」「最近、」「最近 」 → True
+      「最新型」「今月末」「今年度」「近年代」 → False
+    末尾出現は確定で True。複数回出現する場合は単語境界に出る最初のものを採用。
+    """
+    start = 0
+    while True:
+        idx = query.find(kw, start)
+        if idx < 0:
+            return False
+        after = idx + len(kw)
+        if after >= len(query):
+            return True
+        next_char = query[after]
+        if not ('一' <= next_char <= '鿿'):
+            return True
+        start = after
+
+
 def _detect_relative_recent(query: str) -> tuple[date | None, date | None]:
     """「最近」「直近」「今年」等の相対時制を today 基準の date range に変換する。
 
-    検出ルール:
+    検出ルール（漢字複合語の一部は除外する。例: 「最新型」「今月末」「今年度」）:
       今月 / 先月 → 該当月の 1 日〜末日
       今年 / 昨年 → 該当年の 1/1〜12/31
       直近 / 最新 → 過去 30 日
@@ -213,24 +236,24 @@ def _detect_relative_recent(query: str) -> tuple[date | None, date | None]:
     today = date.today()
 
     # 月単位
-    if "今月" in query:
+    if _is_word_match(query, "今月"):
         first = today.replace(day=1)
         last_day = calendar.monthrange(today.year, today.month)[1]
         return first, date(today.year, today.month, last_day)
-    if "先月" in query:
+    if _is_word_match(query, "先月"):
         first_of_this_month = today.replace(day=1)
         last_of_prev = first_of_this_month - timedelta(days=1)
         return last_of_prev.replace(day=1), last_of_prev
 
     # 年単位
-    if "今年" in query:
+    if _is_word_match(query, "今年"):
         return date(today.year, 1, 1), date(today.year, 12, 31)
-    if "昨年" in query or "去年" in query:
+    if _is_word_match(query, "昨年") or _is_word_match(query, "去年"):
         return date(today.year - 1, 1, 1), date(today.year - 1, 12, 31)
 
     # 期間ベース（過去 N 日）— 強い語から先にマッチさせる
     for kw, days in _RELATIVE_DAYS.items():
-        if kw in query:
+        if _is_word_match(query, kw):
             return today - timedelta(days=days), today
 
     return None, None
