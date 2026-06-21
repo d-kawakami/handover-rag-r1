@@ -50,23 +50,33 @@
     display: flex; line-height: 1;
   }
   .btn-close:hover { color: white; background: rgba(255,255,255,.15); }
-  .drawer-body { padding: 20px; flex: 1; }
-  .drawer-section { margin-bottom: 28px; }
+  .drawer-body { padding: 14px 20px; flex: 1; }
+  .drawer-section { margin-bottom: 18px; }
   .drawer-section-title {
     font-size: 0.7rem; text-transform: uppercase; letter-spacing: .1em;
-    color: #a0aec0; margin-bottom: 12px; font-weight: 700;
+    color: #a0aec0; margin-bottom: 8px; font-weight: 700;
   }
 
   /* Toggle */
   .toggle-row {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 0; border-bottom: 1px solid #f0f4f8;
+    padding: 6px 0; border-bottom: 1px solid #f0f4f8;
   }
-  .toggle-label { font-size: 0.88rem; color: #2d3748; }
+  .toggle-label { font-size: 0.88rem; color: #2d3748; line-height: 1.25; }
+  .toggle-sublabel {
+    font-size: 0.72rem; color: #a0aec0; display: block;
+    margin-top: 1px; line-height: 1.2;
+  }
   .setting-hint {
-    font-size: 0.75rem; color: #718096; line-height: 1.5;
-    padding: 4px 0 8px; border-bottom: 1px solid #f0f4f8;
+    font-size: 0.75rem; color: #718096; line-height: 1.4;
+    padding: 2px 0 6px; border-bottom: 1px solid #f0f4f8;
   }
+  /* 状態メッセージ（modelStatus / reasoningStatus）— 空の間は高さを取らない */
+  .status-line {
+    font-size: 0.78rem; color: #718096;
+    line-height: 1.3;
+  }
+  .status-line:empty { display: none; }
   .toggle-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
   .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
   .toggle-track {
@@ -306,18 +316,18 @@
           </select>
           <button class="btn btn-primary btn-sm" onclick="applyModel()" id="btnApplyModel">適用</button>
         </div>
-        <div id="modelStatus" style="font-size:0.78rem;color:#718096;min-height:1.2em"></div>
+        <div id="modelStatus" class="status-line"></div>
       </div>
       <div class="toggle-row">
         <span class="toggle-label">思考モード（Think）
-          <span style="font-size:0.72rem;color:#a0aec0;display:block;margin-top:1px">Qwen3 等の推論機能をオンにする</span>
+          <span class="toggle-sublabel">Qwen3 等の推論機能をオンにする</span>
         </span>
         <label class="toggle-switch">
           <input type="checkbox" id="toggleReasoning" onchange="applyReasoning()">
           <span class="toggle-track"></span>
         </label>
       </div>
-      <div id="reasoningStatus" style="font-size:0.78rem;color:#718096;min-height:1.2em;padding:2px 0"></div>
+      <div id="reasoningStatus" class="status-line"></div>
     </div>
 
     <!-- 検索設定 -->
@@ -420,7 +430,10 @@
   <!-- ===== 検索パネル ===== -->
   <div class="search-card">
     <div class="textarea-wrap">
-      <textarea id="question" placeholder="例: ポンプに関する故障はどのようなものがありましたか？" oninput="onQuestionInput()"></textarea>
+      <textarea id="question" lang="ja" inputmode="text"
+                autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
+                placeholder="例: ポンプに関する故障はどのようなものがありましたか？"
+                oninput="onQuestionInput()"></textarea>
       <button class="textarea-clear-btn" id="questionClearBtn" onclick="clearQuestion()" title="クリア">✕</button>
     </div>
 
@@ -1226,6 +1239,9 @@ loadSettings();
 checkHealth();
 
 document.getElementById('question').addEventListener('keydown', function(e) {
+  // IME 変換中は素通しする。Safari + macOS で 変換 / Enter キーを横取りすると
+  // 直接入力モードへ意図せず切り替わる挙動を防ぐ（keyCode 229 は古いブラウザの IME 標識）。
+  if (e.isComposing || e.keyCode === 229) return;
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault();
     doSearch();
