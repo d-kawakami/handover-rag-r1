@@ -4,7 +4,7 @@ from __future__ import annotations
 import calendar
 import math
 import re
-from datetime import date
+from datetime import date, timedelta
 
 from langchain_core.documents import Document
 
@@ -179,7 +179,61 @@ def parse_date_filter(query: str) -> tuple[date | None, date | None]:
             y = int(hit.group(1))
             return date(y, 1, 1), date(y, 12, 31)
 
+    # 相対時制（最近・直近・今年・昨年・先月 等）— 明示日付が無いときのフォールバック
+    if from_date is None and to_date is None:
+        fd, td = _detect_relative_recent(query)
+        if fd or td:
+            return fd, td
+
     return from_date, to_date
+
+
+# 相対時制キーワード → 過去 N 日（today 基準）
+# 「直近」「最新」のような強い語ほど狭い範囲、「近年」のような広い語ほど広い範囲。
+_RELATIVE_DAYS: dict[str, int] = {
+    "直近": 30,
+    "最新": 30,
+    "ここ最近": 90,
+    "最近": 180,
+    "近年": 365,
+}
+
+
+def _detect_relative_recent(query: str) -> tuple[date | None, date | None]:
+    """「最近」「直近」「今年」等の相対時制を today 基準の date range に変換する。
+
+    検出ルール:
+      今月 / 先月 → 該当月の 1 日〜末日
+      今年 / 昨年 → 該当年の 1/1〜12/31
+      直近 / 最新 → 過去 30 日
+      ここ最近    → 過去 90 日
+      最近        → 過去 180 日（半年）
+      近年        → 過去 365 日（1 年）
+    """
+    today = date.today()
+
+    # 月単位
+    if "今月" in query:
+        first = today.replace(day=1)
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        return first, date(today.year, today.month, last_day)
+    if "先月" in query:
+        first_of_this_month = today.replace(day=1)
+        last_of_prev = first_of_this_month - timedelta(days=1)
+        return last_of_prev.replace(day=1), last_of_prev
+
+    # 年単位
+    if "今年" in query:
+        return date(today.year, 1, 1), date(today.year, 12, 31)
+    if "昨年" in query or "去年" in query:
+        return date(today.year - 1, 1, 1), date(today.year - 1, 12, 31)
+
+    # 期間ベース（過去 N 日）— 強い語から先にマッチさせる
+    for kw, days in _RELATIVE_DAYS.items():
+        if kw in query:
+            return today - timedelta(days=days), today
+
+    return None, None
 
 
 def normalize_query_for_bm25(query: str) -> str:

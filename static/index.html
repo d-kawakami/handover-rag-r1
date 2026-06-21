@@ -303,18 +303,6 @@
   </div>
   <div class="drawer-body">
 
-    <!-- 表示設定 -->
-    <div class="drawer-section">
-      <div class="drawer-section-title">表示設定</div>
-      <div class="toggle-row">
-        <span class="toggle-label">記入者を非表示にする</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="toggleHideWriter" onchange="saveSettings()">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-    </div>
-
     <!-- LLMモデル設定 -->
     <div class="drawer-section">
       <div class="drawer-section-title">LLMモデル設定</div>
@@ -328,16 +316,6 @@
         </div>
         <div id="modelStatus" class="status-line"></div>
       </div>
-      <div class="toggle-row">
-        <span class="toggle-label">思考モード（Think）
-          <span class="toggle-sublabel">Qwen3 等の推論機能をオンにする</span>
-        </span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="toggleReasoning" onchange="applyReasoning()">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-      <div id="reasoningStatus" class="status-line"></div>
     </div>
 
     <!-- 検索設定 -->
@@ -430,6 +408,33 @@
         </div>
         <div class="log-area" id="logArea"></div>
       </div>
+    </div>
+
+    <!-- 表示設定（変更頻度低） -->
+    <div class="drawer-section">
+      <div class="drawer-section-title">表示設定</div>
+      <div class="toggle-row">
+        <span class="toggle-label">記入者を非表示にする</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleHideWriter" onchange="saveSettings()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 思考モード（変更頻度低） -->
+    <div class="drawer-section">
+      <div class="drawer-section-title">思考モード</div>
+      <div class="toggle-row">
+        <span class="toggle-label">思考モード（Think）
+          <span class="toggle-sublabel">Qwen3 等の推論機能をオンにする</span>
+        </span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleReasoning" onchange="applyReasoning()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div id="reasoningStatus" class="status-line"></div>
     </div>
 
   </div>
