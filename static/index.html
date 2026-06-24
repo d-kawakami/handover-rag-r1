@@ -1009,7 +1009,7 @@ function updateHealthBadge(records, bm25) {
   el.style.background = '#2f855a';
 }
 
-async function checkHealth() {
+async function checkHealth(retries = 5, delay = 2000) {
   try {
     const r = await fetch('/api/health');
     const d = await r.json();
@@ -1029,8 +1029,15 @@ async function checkHealth() {
       el.style.background = '#c53030';
     }
   } catch {
-    document.getElementById('healthBadge').textContent = '接続失敗';
-    document.getElementById('healthBadge').style.background = '#c53030';
+    const el = document.getElementById('healthBadge');
+    if (retries > 0) {
+      el.textContent = '接続中...';
+      el.style.background = '#718096';
+      setTimeout(() => checkHealth(retries - 1, delay), delay);
+    } else {
+      el.textContent = '接続失敗';
+      el.style.background = '#c53030';
+    }
   }
 }
 

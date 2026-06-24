@@ -234,8 +234,10 @@ def count_specific_failure(query: str, sf: SearchFilter | None = None) -> tuple[
                 lines.append(f"    └ 記録内容例: {s}")
 
     if matched:
-        lines += ["", f"■ 該当記録（全{len(matched)}件）:"]
-        for d in sorted(matched, key=lambda d: d.metadata.get("日付", "")):
+        sample_docs = sorted(matched, key=lambda d: d.metadata.get("日付", ""))
+        sample_docs = sample_docs[-state.equip_tendency_samples:]
+        lines += ["", f"■ 該当記録（全{len(matched)}件・最新{len(sample_docs)}件を表示）:"]
+        for d in sample_docs:
             date_val = d.metadata.get("日付", "不明")
             shubetsu = d.metadata.get("種別", "")
             snippet = _content_snippet(d, max_len=60)
@@ -485,7 +487,7 @@ def list_failures_by_severity(query: str, sf: SearchFilter | None = None) -> tup
         f"■ 全{len(matched)}件の記録（最新{len(sample_docs)}件を表示）:",
         "  ※ 記録が多い場合は日付範囲を指定して絞り込めます",
     ]
-    for d in sorted(matched, key=lambda d: d.metadata.get("日付", "")):
+    for d in sorted(sample_docs, key=lambda d: d.metadata.get("日付", "")):
         date_val = d.metadata.get("日付", "不明")[:10]
         shubetsu = d.metadata.get("種別", "")
         snippet = _content_snippet(d, max_len=80)
