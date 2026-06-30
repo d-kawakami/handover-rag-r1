@@ -12,6 +12,9 @@ RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
 # 既定値（config.json で上書き可能）
 DEFAULT_LLM_MODEL = "qwen2.5:14b"
 DEFAULT_LLM_REASONING = False
+# LLM 生成トークン上限。暴走生成（無制限に長文化してタイムアウトする）を防ぐ
+# 安全弁。通常の回答（数百トークン）は切らない余裕を持たせている。
+LLM_NUM_PREDICT = 1024
 DEFAULT_EQUIP_TENDENCY_SAMPLES = 20
 DEFAULT_SUDACHI_MODE = "C"
 DEFAULT_SUGGEST_SAMPLE_SIZE = 200

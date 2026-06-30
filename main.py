@@ -27,6 +27,7 @@ from config import (
     DEFAULT_LLM_REASONING,
     DEFAULT_SUDACHI_MODE,
     EMBED_MODEL,
+    LLM_NUM_PREDICT,
     OLLAMA_BASE_URL,
     RERANKER_MODEL,
     STATIC_DIR,
@@ -67,6 +68,7 @@ async def lifespan(app: FastAPI):
             # 注: `False or None` は None になり、qwen3 系の think モード既定値（ON）が
             # そのまま使われてしまう。False を明示的に渡して think=false を強制する。
             reasoning=state.llm_reasoning,
+            num_predict=LLM_NUM_PREDICT,
         )
 
         log.info("Re-ranker ロード中: %s", RERANKER_MODEL)

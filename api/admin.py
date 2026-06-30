@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException
 from langchain_ollama import OllamaLLM
 
 from api.schemas import EquipSamplesRequest, ModelChangeRequest, ReasoningRequest
-from config import OLLAMA_BASE_URL, VALID_EQUIP_SAMPLES, load_config, save_config
+from config import LLM_NUM_PREDICT, OLLAMA_BASE_URL, VALID_EQUIP_SAMPLES, load_config, save_config
 from ingest import CHROMA_PATH, COLLECTION_NAME
 from search.retrieval import build_index
 from state import state
@@ -94,6 +94,7 @@ def change_model(req: ModelChangeRequest):
                 base_url=OLLAMA_BASE_URL,
                 # False を明示的に渡すことで qwen3 系の think モード既定値（ON）を上書きする
                 reasoning=state.llm_reasoning,
+                num_predict=LLM_NUM_PREDICT,
             )
             state.llm = new_llm
             state.llm_model = req.model
@@ -120,6 +121,7 @@ def set_reasoning(req: ReasoningRequest):
                 base_url=OLLAMA_BASE_URL,
                 # OFF を明示的に Ollama へ伝えるため False をそのまま渡す
                 reasoning=req.enabled,
+                num_predict=LLM_NUM_PREDICT,
             )
             state.llm = new_llm
             state.llm_reasoning = req.enabled

@@ -200,6 +200,22 @@ def count_specific_failure(query: str, sf: SearchFilter | None = None) -> tuple[
 
     matched = [d for d in range_docs if doc_matches(d)]
 
+    # 「〇〇の故障は何件」のように故障を明示する質問では、報告・処置などを含む
+    # 全記録ではなく故障系の記録（種別=故障/故障処置）だけを数える。これにより
+    # 「故障件数」を一意に確定でき、LLM が総数と内訳のどちらを答えるか揺れる問題を防ぐ。
+    # 「全体で」等の総数を明示する質問、および「異常」のみ（例: 上限異常）の質問は対象外。
+    FAILURE_TYPES = {"故障", "故障処置"}
+    is_failure_scoped = (
+        any(w in query for w in ("故障", "障害", "不具合"))
+        and not any(w in query for w in ("全体", "すべて", "全て", "総数", "全部"))
+    )
+    if is_failure_scoped:
+        matched = [
+            d for d in matched
+            if d.metadata.get("種別", "").strip() in FAILURE_TYPES
+        ]
+    count_label = "故障記録件数" if is_failure_scoped else "記録件数"
+
     shubetsu_count: Counter = Counter(
         d.metadata.get("種別", "（不明）").strip() or "（不明）"
         for d in matched
@@ -221,7 +237,7 @@ def count_specific_failure(query: str, sf: SearchFilter | None = None) -> tuple[
         f"集計期間: {date_label}",
         f"検索語: 「{subject}」（同義語含む: {', '.join(search_variants)}）",
         "",
-        f"■ 「{subject}」（同義語含む）を含む記録件数: {len(matched)}件",
+        f"■ 「{subject}」（同義語含む）の{count_label}: {len(matched)}件",
     ]
     if breakdown:
         lines.append(f"  （種別内訳: {breakdown}）")
